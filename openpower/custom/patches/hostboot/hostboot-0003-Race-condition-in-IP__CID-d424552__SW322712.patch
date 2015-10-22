@@ -1,0 +1,111 @@
+From d4245526721344197a416c3e92072ea7628b22ac Mon Sep 17 00:00:00 2001
+From: Ben Rafanello <brafanel@us.ibm.com>
+Date: Thu, 15 Oct 2015 17:02:00 -0500
+Subject: [PATCH] Race condition in IPMI-SEL thread start
+
+This fixes a defect where we shutdown Hostboot before the SEL that
+caused the shutdown is sent to the BMC.
+
+The SEL processing of error logs is done in the background by a thread
+that is only started when the first error log is committed.  Due to
+lack of proper synchronization, the shutdown could previously occur
+before the SEL thread had fully started and registered itself in the
+shutdown processing to ensure its queue was flushed.
+
+Modified the IPMI-SEL thread start up to synchronize with a barrier
+after it has completed its init actions (such as registering for
+shutdown).  This ensures that the thread triggering the start up does
+not continue, and trigger shutdown, until the initialization is
+complete.
+
+Change-Id: Ie25a5c6e81580375fd18dfe4431660ca14f78273
+CQ:SW322712
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/21270
+Tested-by: Jenkins Server
+Tested-by: Jenkins OP Build CI
+Tested-by: Jenkins OP HW
+Tested-by: FSP CI Jenkins
+Reviewed-by: A. Patrick Williams III <iawillia@us.ibm.com>
+---
+ src/include/usr/ipmi/ipmisel.H |  9 ++++++---
+ src/usr/ipmi/ipmisel.C         | 10 +++++++---
+ 2 files changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/src/include/usr/ipmi/ipmisel.H b/src/include/usr/ipmi/ipmisel.H
+index 13f44a8..86adb07 100644
+--- a/src/include/usr/ipmi/ipmisel.H
++++ b/src/include/usr/ipmi/ipmisel.H
+@@ -1,7 +1,7 @@
+ /* IBM_PROLOG_BEGIN_TAG                                                   */
+ /* This is an automatically generated prolog.                             */
+ /*                                                                        */
+-/* $Source: src/usr/ipmi/ipmisel.H $                                      */
++/* $Source: src/include/usr/ipmi/ipmisel.H $                              */
+ /*                                                                        */
+ /* OpenPOWER HostBoot Project                                             */
+ /*                                                                        */
+@@ -34,6 +34,8 @@
+ #include <stdint.h>
+ #include <builtins.h>
+ #include <ipmi/ipmiif.H>
++#include <sys/sync.h>
++
+ 
+ /**
+  *
+@@ -248,9 +250,9 @@ class IpmiSEL
+ 
+       /**
+        * Thread start routine for the resource provider
+-       * @param[in] void*, unused
++       * @param[in] void* instance - 'this' instance to start.
+        */
+-      static void* start(void* unused);
++      static void* start(void* instance);
+ 
+       /**
+        * Default constructor
+@@ -277,6 +279,7 @@ class IpmiSEL
+       void execute(void);
+ 
+       msg_q_t           iv_msgQ;      //!< ipmi message queue
++      barrier_t         iv_sync_start;
+ 
+       //Disallow copying of this class.
+       IpmiSEL& operator=(const IpmiSEL&);
+diff --git a/src/usr/ipmi/ipmisel.C b/src/usr/ipmi/ipmisel.C
+index 6c44016..7bb1136 100644
+--- a/src/usr/ipmi/ipmisel.C
++++ b/src/usr/ipmi/ipmisel.C
+@@ -420,7 +420,9 @@ IpmiSEL::IpmiSEL(void)
+     :iv_msgQ(msg_q_create())
+ {
+     IPMI_TRAC(ENTER_MRK "IpmiSEL ctor");
+-    task_create(&IpmiSEL::start,NULL);
++    barrier_init(&iv_sync_start, 2);
++    task_create(&IpmiSEL::start, this);
++    barrier_wait(&iv_sync_start);
+ }
+ 
+ /**
+@@ -431,9 +433,9 @@ IpmiSEL::~IpmiSEL(void)
+     msg_q_destroy(iv_msgQ);
+ }
+ 
+-void* IpmiSEL::start(void* unused)
++void* IpmiSEL::start(void* instance)
+ {
+-    Singleton<IpmiSEL>::instance().execute();
++    static_cast<IpmiSEL*>(instance)->execute();
+     return NULL;
+ }
+ 
+@@ -456,6 +458,8 @@ void IpmiSEL::execute(void)
+     INITSERVICE::registerShutdownEvent(iv_msgQ, IPMISEL::MSG_STATE_SHUTDOWN,
+                                        INITSERVICE::MBOX_PRIORITY);
+ 
++    barrier_wait(&iv_sync_start);
++
+     while(true)
+     {
+         msg_t* msg = msg_wait(iv_msgQ);

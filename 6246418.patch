@@ -1,0 +1,17 @@
+From 6246418a221ce1f77c89428fb0d3fd13866b8106 Mon Sep 17 00:00:00 2001
+From: Samuel Mendoza-Jonas <sam.mj@au1.ibm.com>
+Date: Mon, 19 Oct 2015 17:23:54 +1100
+Subject: [PATCH] Update buildroot to include dropbear init script fix
+
+Signed-off-by: Samuel Mendoza-Jonas <sam.mj@au1.ibm.com>
+---
+ buildroot | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/buildroot b/buildroot
+index 40ff8b4..1541ae4 160000
+--- a/buildroot
++++ b/buildroot
+@@ -1 +1 @@
+-Subproject commit 40ff8b41146a34d16439413b89470573e355912f
++Subproject commit 1541ae43029e88380085d60bc01a80ab141c3ddd

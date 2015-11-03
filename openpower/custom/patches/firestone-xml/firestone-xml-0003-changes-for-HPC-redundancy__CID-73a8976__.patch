@@ -1,0 +1,38 @@
+From 7c3c5eddd38fbc28d0020ce1caedf1a825319127 Mon Sep 17 00:00:00 2001
+From: Cakici <cakici@lcb343.aus.stglabs.ibm.com>
+Date: Wed, 28 Oct 2015 17:17:36 -0500
+Subject: [PATCH] changes for HPC redundancy
+
+---
+ firestone.xml | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/firestone.xml b/firestone.xml
+index 673fd4f..1886102 100644
+--- a/firestone.xml
++++ b/firestone.xml
+@@ -5420,17 +5420,21 @@
+ 	</attribute>
+ 	<attribute>
+ 		<id>OPEN_POWER_N_BULK_POWER_LIMIT_WATTS</id>
+-		<default>1200</default>
++		<default>1250</default>
+ 	</attribute>
+ 	<attribute>
+ 		<id>OPEN_POWER_N_MAX_MEM_POWER_WATTS</id>
+-		<default>500</default>
++		<default>350</default>
+ 	</attribute>
+ 	<attribute>
+ 		<id>OPEN_POWER_N_PLUS_ONE_BULK_POWER_LIMIT_WATTS</id>
+-		<default>2300</default>
++		<default>1650</default>
+ 	</attribute>
+ 	<attribute>
++                <id>OPEN_POWER_N_PLUS_ONE_HPC_BULK_POWER_LIMIT_WATTS</id>
++                <default>2300</default>
++        </attribute>
++	<attribute>
+ 		<id>OPEN_POWER_N_PLUS_ONE_MAX_MEM_POWER_WATTS</id>
+ 		<default>500</default>
+ 	</attribute>

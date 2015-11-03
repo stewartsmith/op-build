@@ -1,0 +1,70 @@
+From ee3ca0b0c588160a18aa978b2906ced0e1409fe0 Mon Sep 17 00:00:00 2001
+From: Chris Cain <cjcain@us.ibm.com>
+Date: Wed, 21 Oct 2015 17:07:29 -0500
+Subject: [PATCH] Add system power cap for HPC systems running with
+ non-redundant ps policy
+
+Change-Id: Idda2657d9e2ecabd513ce44233176da77343c46d
+RTC: 135830
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/21402
+Tested-by: Jenkins Server
+Tested-by: Jenkins OP Build CI
+Tested-by: Jenkins OP HW
+Tested-by: FSP CI Jenkins
+Reviewed-by: Daniel M. Crowell <dcrowell@us.ibm.com>
+Reviewed-by: Martha Broyles <mbroyles@us.ibm.com>
+Reviewed-by: A. Patrick Williams III <iawillia@us.ibm.com>
+---
+ src/usr/targeting/common/xmltohb/attribute_types_hb.xml | 17 ++++++++++++++++-
+ src/usr/targeting/common/xmltohb/target_types_hb.xml    |  3 +++
+ 2 files changed, 19 insertions(+), 1 deletion(-)
+
+diff --git a/src/usr/targeting/common/xmltohb/attribute_types_hb.xml b/src/usr/targeting/common/xmltohb/attribute_types_hb.xml
+index d75ff2d..89f2c5b 100644
+--- a/src/usr/targeting/common/xmltohb/attribute_types_hb.xml
++++ b/src/usr/targeting/common/xmltohb/attribute_types_hb.xml
+@@ -581,7 +581,8 @@
+ <attribute>
+     <id>OPEN_POWER_N_PLUS_ONE_BULK_POWER_LIMIT_WATTS</id>
+     <description>
+-        N+1 bulk power limit in Watts
++        N+1 bulk power limit in Watts for systems running
++        with redundant power supplies (default)
+     </description>
+     <simpleType>
+         <uint64_t></uint64_t>
+@@ -590,6 +591,20 @@
+     <readable/>
+ </attribute>
+ <attribute>
++    <id>OPEN_POWER_N_PLUS_ONE_HPC_BULK_POWER_LIMIT_WATTS</id>
++    <description>
++        N+1 bulk power limit in Watts for High Performance Computing
++        systems running with a non-redundant power supply policy
++    </description>
++    <simpleType>
++        <uint64_t>
++            <default>0</default>
++        </uint64_t>
++    </simpleType>
++    <persistency>non-volatile</persistency>
++    <readable/>
++</attribute>
++<attribute>
+     <id>OPEN_POWER_N_PLUS_ONE_MAX_MEM_POWER_WATTS</id>
+     <description>
+         N+1 max memory power in Watts
+diff --git a/src/usr/targeting/common/xmltohb/target_types_hb.xml b/src/usr/targeting/common/xmltohb/target_types_hb.xml
+index ece401a..eb69105 100644
+--- a/src/usr/targeting/common/xmltohb/target_types_hb.xml
++++ b/src/usr/targeting/common/xmltohb/target_types_hb.xml
+@@ -68,6 +68,9 @@
+     <attribute><id>OPEN_POWER_REGULATOR_EFFICIENCY_FACTOR</id></attribute>
+     <attribute><id>OPEN_POWER_MIN_POWER_CAP_WATTS</id></attribute>
+     <attribute><id>OPEN_POWER_N_PLUS_ONE_BULK_POWER_LIMIT_WATTS</id></attribute>
++    <attribute>
++        <id>OPEN_POWER_N_PLUS_ONE_HPC_BULK_POWER_LIMIT_WATTS</id>
++    </attribute>
+     <attribute><id>OPEN_POWER_N_PLUS_ONE_MAX_MEM_POWER_WATTS</id></attribute>
+     <attribute><id>OPEN_POWER_TURBO_MODE_SUPPORTED</id></attribute>
+     <attribute><id>OCC_CONTROL_DATA</id></attribute>

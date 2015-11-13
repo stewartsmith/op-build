@@ -1,0 +1,64 @@
+From d05d1349b25622ac454f60fb4032d249f8fc8b4a Mon Sep 17 00:00:00 2001
+From: Jay Azurin <jmazurin@us.ibm.com>
+Date: Fri, 30 Oct 2015 14:50:31 -0500
+Subject: [PATCH] Fix missing eSEL due to 0 PEL size
+
+Instead of always setting the PEL size to zero for the first SEL, set the PEL
+size to zero only after a SEL is sent.
+
+Change-Id: I9682d3098d92c9902c66b490eda9d48af73c1448
+CQ: SW326258
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/21641
+Tested-by: Jenkins Server
+Tested-by: Jenkins OP Build CI
+Tested-by: Jenkins OP HW
+Tested-by: FSP CI Jenkins
+Reviewed-by: Brian H. Horton <brianh@linux.ibm.com>
+Reviewed-by: Marshall J. Wilks <mjwilks@us.ibm.com>
+Reviewed-by: A. Patrick Williams III <iawillia@us.ibm.com>
+---
+ src/usr/errl/errlmanager_common.C | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/src/usr/errl/errlmanager_common.C b/src/usr/errl/errlmanager_common.C
+index 0020ee1..3668e20 100644
+--- a/src/usr/errl/errlmanager_common.C
++++ b/src/usr/errl/errlmanager_common.C
+@@ -497,6 +497,8 @@ inline bool SensorModifier::modifySensor(uint8_t i_sensorType,
+ ///////////////////////////////////////////////////////////////////////////////
+ void ErrlManager::sendErrLogToBmc(errlHndl_t &io_err, bool i_sendSels)
+ {
++    bool l_selSent = false;
++
+     TRACFCOMP(g_trac_errl, ENTER_MRK
+                 "sendErrLogToBmc errlogId 0x%.8x, i_sendSels %d",
+                 io_err->eid(), i_sendSels);
+@@ -642,9 +644,14 @@ void ErrlManager::sendErrLogToBmc(errlHndl_t &io_err, bool i_sendSels)
+                                                l_eventOffset );
+                 }
+ 
+-                // if we are sending the first sel then we will include the
+-                // pel data, otherwise we send no data
+-                uint32_t selSize = ( i == 0 ) ? l_pelSize:0;
++                uint32_t selSize = l_pelSize;
++
++                // if we sent an eSEL then set the PEL size to zero such
++                // that we don't send another eSEL for the same error log
++                if (l_selSent)
++                {
++                    selSize = 0;
++                }
+ 
+                 // only send highest priority SELs or
+                 // SELs of lesser priority that were modified
+@@ -660,7 +667,10 @@ void ErrlManager::sendErrLogToBmc(errlHndl_t &io_err, bool i_sendSels)
+                                     l_eventDirType, l_eventOffset,
+                                     l_sensorType,
+                                     l_sensorNumber);
++
++                    l_selSent = true;
+                 }
++
+             } // for l_callouts
+         }
+         else

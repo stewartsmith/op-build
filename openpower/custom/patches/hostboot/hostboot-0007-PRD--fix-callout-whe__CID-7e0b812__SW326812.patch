@@ -1,0 +1,36 @@
+From 7e0b8122c610a2a49489d3ccd18c3e8a480dcc70 Mon Sep 17 00:00:00 2001
+From: Zane Shelley <zshelle@us.ibm.com>
+Date: Wed, 4 Nov 2015 14:22:09 -0600
+Subject: [PATCH] PRD: fix callout when both symbol and chip mark used
+
+Change-Id: Ib85924641b3a071bfb400e1e8d7db6df815f555c
+CQ: SW326812
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/21746
+Reviewed-by: Caleb N. Palmer <cnpalmer@us.ibm.com>
+Reviewed-by: A. Patrick Williams III <iawillia@us.ibm.com>
+Tested-by: Jenkins Server
+Reviewed-by: Zane Shelley <zshelle@us.ibm.com>
+Depends-on: I7cc64aab0fb0a571e75827496192cb9d041b891b
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/21776
+Tested-by: Jenkins OP Build CI
+Tested-by: Jenkins OP HW
+Tested-by: FSP CI Jenkins
+---
+ src/usr/diag/prdf/common/runtime/prdfCenMbaTdCtlr_rt.C | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/usr/diag/prdf/common/runtime/prdfCenMbaTdCtlr_rt.C b/src/usr/diag/prdf/common/runtime/prdfCenMbaTdCtlr_rt.C
+index 65cb64d..e69a128 100755
+--- a/src/usr/diag/prdf/common/runtime/prdfCenMbaTdCtlr_rt.C
++++ b/src/usr/diag/prdf/common/runtime/prdfCenMbaTdCtlr_rt.C
+@@ -2148,7 +2148,9 @@ int32_t CenMbaTdCtlr::handleCeEte_Tps( STEP_CODE_DATA_STRUCT & io_sc )
+ 
+             if ( !available )
+             {
+-                // Spares have been used. Make the error log predictive.
++                // Spares have been used. Callout the mark. Make the error log
++                // predictive.
++                CalloutUtil::calloutMark( iv_mbaTrgt, iv_rank, iv_mark, io_sc );
+                 setTdSignature( io_sc, PRDFSIG_TpsCmAndSpare );
+                 io_sc.service_data->setServiceCall();
+             }

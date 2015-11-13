@@ -1,0 +1,24 @@
+From 7e8b9a051f8e829cc2e4e3f41715c1034c84b425 Mon Sep 17 00:00:00 2001
+From: Cakici <cakici@lcb343.aus.stglabs.ibm.com>
+Date: Thu, 12 Nov 2015 12:52:43 -0600
+Subject: [PATCH] MRW_MCS_PREFETCH_RETRY_THRESHOLD 0x07
+
+---
+ firestone.xml | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/firestone.xml b/firestone.xml
+index ded623e..115303b 100644
+--- a/firestone.xml
++++ b/firestone.xml
+@@ -5155,6 +5155,10 @@
+ 		<id>ALL_MCS_IN_INTERLEAVING_GROUP</id>
+ 		<default>1</default>
+ 	</attribute>
++        <attribute>
++                <id>MRW_MCS_PREFETCH_RETRY_THRESHOLD</id>
++                <default>0x07</default>
++        </attribute>
+ 	<attribute>
+ 		<id>APSS_GPIO_PORT_MODES</id>
+ 		<default>0x0,0x3</default>

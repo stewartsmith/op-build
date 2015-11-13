@@ -1,0 +1,35 @@
+From e2b597701e596f6e0feb010c2ba0c5d75aa8f3aa Mon Sep 17 00:00:00 2001
+From: Matt Ploetz <maploetz@us.ibm.com>
+Date: Mon, 26 Oct 2015 10:33:20 -0500
+Subject: [PATCH] Fix missed error path in scom writes
+
+Change-Id: I7d0924ff7822abf0c0d6884b562525e29e00c42d
+CQ:SW326074
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/21489
+Tested-by: Jenkins Server
+Tested-by: Jenkins OP Build CI
+Tested-by: Jenkins OP HW
+Tested-by: FSP CI Jenkins
+Reviewed-by: Daniel M. Crowell <dcrowell@us.ibm.com>
+Reviewed-by: STEPHEN M. CPREK <smcprek@us.ibm.com>
+Reviewed-by: A. Patrick Williams III <iawillia@us.ibm.com>
+---
+ src/usr/scom/scom.C | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/src/usr/scom/scom.C b/src/usr/scom/scom.C
+index 6977e3a..25d3deb 100644
+--- a/src/usr/scom/scom.C
++++ b/src/usr/scom/scom.C
+@@ -372,6 +372,11 @@ errlHndl_t checkIndirectAndDoScom(DeviceFW::OperationType i_opType,
+                              i_accessType,
+                              i_addr);
+ 
++            if (l_err != NULL)
++            {
++                break;
++            }
++
+             // Need to check loop on read until we see done, error,
+             //  or we timeout
+             IndirectScom_t scomout;

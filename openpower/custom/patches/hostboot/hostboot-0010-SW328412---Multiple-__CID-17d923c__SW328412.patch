@@ -1,0 +1,65 @@
+From 17d923c93f0a9a83aba7b1837f4d6db7ea071bc9 Mon Sep 17 00:00:00 2001
+From: Ben Rafanello <brafanel@us.ibm.com>
+Date: Thu, 10 Dec 2015 15:22:09 -0600
+Subject: [PATCH] SW328412 - Multiple SELs per eSEL
+
+The problem being fixed is the generation of multiple
+SELs per eSEL when sending of the eSEL to the BMC
+fails due to loss of SEL reservation on the BMC.  The
+code in send_esel is not supposed to generate the SEL
+if there was an error sending the eSEL(the eSEL is in
+the log stored on the PNOR and will be sent after the
+next reboot if it has not been marked as having been
+sent to the BMC).  The error is that there are two
+error variables that need to be checked in order to
+determine if there was an error sending the eSEL to
+the BMC.  The code was only checking one of those.
+
+Change-Id: I1346b29d8c31ed862b0bcfba9a6b8f057030ac20
+CQ:SW328412
+backport:master-p8
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/22663
+Tested-by: Jenkins Server
+Reviewed-by: WILLIAM G. HOFFA <wghoffa@us.ibm.com>
+Reviewed-by: Marshall J. Wilks <mjwilks@us.ibm.com>
+Reviewed-by: A. Patrick Williams III <iawillia@us.ibm.com>
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/23177
+Tested-by: Jenkins OP Build CI
+Tested-by: Jenkins OP HW
+---
+ src/usr/ipmi/ipmisel.C | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/src/usr/ipmi/ipmisel.C b/src/usr/ipmi/ipmisel.C
+index 7bb1136..31f3ac0 100644
+--- a/src/usr/ipmi/ipmisel.C
++++ b/src/usr/ipmi/ipmisel.C
+@@ -5,7 +5,7 @@
+ /*                                                                        */
+ /* OpenPOWER HostBoot Project                                             */
+ /*                                                                        */
+-/* Contributors Listed Below - COPYRIGHT 2014,2015                        */
++/* Contributors Listed Below - COPYRIGHT 2014,2016                        */
+ /* [+] International Business Machines Corp.                              */
+ /*                                                                        */
+ /*                                                                        */
+@@ -221,7 +221,10 @@ void send_esel(eselInitData * i_data,
+         if (l_eSELlen == 0)
+         {
+             IPMI_TRAC(INFO_MRK "no eSEL data present, skipping to SEL");
++
+             // sending sensor SELs only, not the eSEL
++            o_cc = IPMI::CC_OK;
++
+             break;
+         }
+ 
+@@ -348,7 +351,7 @@ void send_esel(eselInitData * i_data,
+     }while(0);
+ 
+     // if eSEL wasn't created due to an error, we don't want to continue
+-    if (o_err == NULL)
++    if ((o_err == NULL) && (o_cc == IPMI::CC_OK))
+     {
+         // caller wants us to NOT create sensor SEL
+         if ((i_data->eSel[offsetof(selRecord,sensor_type)] == SENSOR::INVALID_TYPE) &&

@@ -4,10 +4,11 @@
 #
 ################################################################################
 
-# pje 10/7 - patched to pull in 5.1.6
-# pje 11/2 - patched to pull in 5.1.8
+# pje 10/7  - patched to pull in 5.1.6
+# pje 11/2  - patched to pull in 5.1.8
 # pje 11/16 - patched to pull in 5.1.9
-SKIBOOT_VERSION = skiboot-5.1.9
+# pje  1/25 - patched to pull in 5.1.12
+SKIBOOT_VERSION = skiboot-5.1.12
 SKIBOOT_SITE = $(call github,open-power,skiboot,$(SKIBOOT_VERSION))
 SKIBOOT_INSTALL_IMAGES = YES
 SKIBOOT_INSTALL_TARGET = NO

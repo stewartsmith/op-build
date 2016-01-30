@@ -1,11 +1,27 @@
+
 ################################################################################
 #
 # petitboot
 #
 ################################################################################
 
-PETITBOOT_VERSION = d171258160f7ed4756531f51e66fb116753bc990
-PETITBOOT_SITE = git://github.com/open-power/petitboot.git
+# 1/29 - pje updated to pull in petitboot from a different branch
+# pulled it down into my local space as:
+# git clone http://github.com/open-power/petitboot -b version_info_all
+
+# claims to be an invalid git repo, unknown -b option, etc, etc...
+
+PETITBOOT_VERSION ?= version_info_all
+PETITBOOT_SITE=git://github.com/open-power/petitboot 
+
+#PETITBOOT_VERSION = LOCAL_version_info_all_branch_sammj
+### was: d171258160f7ed4756531f51e66fb116753bc990
+#PETITBOOT_SITE=/esw/user/nfs/fspbld/openPower/version_info/petitboot
+#PETITBOOT_SITE_METHOD=local
+#
+##PETITBOOT_SITE = git://github.com/open-power/petitboot
+# was from petitboot/petitboot.git
+
 PETITBOOT_DEPENDENCIES = ncurses udev host-bison host-flex lvm2
 PETITBOOT_LICENSE = GPLv2
 PETITBOOT_LICENSE_FILES = COPYING
@@ -22,6 +38,15 @@ PETITBOOT_CONF_OPTS += --with-ncurses --without-twin-x11 --without-twin-fbdev \
 ifdef PETITBOOT_DEBUG
 PETITBOOT_CONF_OPTS += --enable-debug
 endif
+
+# pje - added from sammj:
+ifeq ($(BR2_PACKAGE_PETITBOOT_MTD),y)
+PETITBOOT_CONF_OPTS += --enable-mtd
+PETITBOOT_DEPENDENCIES += skiboot libxml2
+PETITBOOT_CPPFLAGS += -I$(STAGING_DIR)
+PETITBOOT_LDFLAGS += -L$(STAGING_DIR)
+endif
+
 
 ifeq ($(BR2_PACKAGE_NCURSES_WCHAR),y)
 PETITBOOT_CONF_OPTS += --with-ncursesw MENU_LIB=-lmenuw FORM_LIB=-lformw

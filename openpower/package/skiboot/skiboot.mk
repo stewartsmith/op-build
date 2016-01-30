@@ -8,7 +8,10 @@
 # pje 11/2  - patched to pull in 5.1.8
 # pje 11/16 - patched to pull in 5.1.9
 # pje  1/25 - patched to pull in 5.1.12
-SKIBOOT_VERSION = skiboot-5.1.12
+# pje  1/29 - patched to match what they are using now (ie, updating config.in
+#             with the version id to use - 5.1.13)
+SKIBOOT_VERSION = $(call qstrip,$(BR2_SKIBOOT_VERSION))
+
 SKIBOOT_SITE = $(call github,open-power,skiboot,$(SKIBOOT_VERSION))
 SKIBOOT_INSTALL_IMAGES = YES
 SKIBOOT_INSTALL_TARGET = NO
@@ -27,6 +30,19 @@ else
 SKIBOOT_DEPENDENCIES += linux
 endif
 
+endif
+
+ifeq ($(BR2_SKIBOOT_INSTALL_LIBFLASH),y)
+SKIBOOT_INSTALL_STAGING = YES
+SKIBOOT_INSTALL_TARGET = YES
+
+define SKIBOOT_INSTALL_STAGING_CMDS
+	PREFIX=$(STAGING_DIR)/usr $(MAKE) $(SKIBOOT_MAKE_OPTS) CROSS_COMPILE=$(TARGET_CROSS) -C $(@D)/external/shared install
+endef
+
+define SKIBOOT_INSTALL_TARGET_CMDS
+	PREFIX=$(TARGET_DIR)/usr $(MAKE) $(SKIBOOT_MAKE_OPTS) CROSS_COMPILE=$(TARGET_CROSS) -C $(@D)/external/shared install-lib
+endef
 endif
 
 define SKIBOOT_BUILD_CMDS

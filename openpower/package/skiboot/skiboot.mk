@@ -10,7 +10,8 @@
 # pje  1/25 - patched to pull in 5.1.12
 # pje  1/29 - patched to match what they are using now (ie, updating config.in
 #             with the version id to use - 5.1.13)
-SKIBOOT_VERSION = $(call qstrip,$(BR2_SKIBOOT_VERSION))
+# pje 2/2   - patched to pull in latest master code
+SKIBOOT_VERSION = e3f129efba356a83f05e5932510efd8b157730ad
 
 SKIBOOT_SITE = $(call github,open-power,skiboot,$(SKIBOOT_VERSION))
 SKIBOOT_INSTALL_IMAGES = YES

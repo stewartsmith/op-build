@@ -1,0 +1,208 @@
+From 1292ffb89082617c7a43338fe1147a77131332b1 Mon Sep 17 00:00:00 2001
+From: Caleb Palmer <cnpalmer@us.ibm.com>
+Date: Mon, 16 Nov 2015 16:32:19 -0600
+Subject: [PATCH] PRD: Change Priority RCD Parity Before Mem UE
+
+Change-Id: I176d4f442a7c7150273d3e9d3757d1f6b32bf02c
+CQ: SW328793
+Backport: master-p8
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/22073
+Tested-by: Jenkins Server
+Reviewed-by: BENJAMIN J. WEISENBECK <bweisenb@us.ibm.com>
+Reviewed-by: A. Patrick Williams III <iawillia@us.ibm.com>
+Reviewed-by: Zane Shelley <zshelle@us.ibm.com>
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/22254
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/22367
+Tested-by: Jenkins OP Build CI
+Tested-by: Jenkins OP HW
+Tested-by: FSP CI Jenkins
+---
+ .../prdf/common/plat/pegasus/Membuf_acts_NEST.rule | 18 ++++-
+ .../diag/prdf/common/plat/pegasus/prdfCenMembuf.C  | 89 ++++++++++++++++------
+ 2 files changed, 82 insertions(+), 25 deletions(-)
+
+diff --git a/src/usr/diag/prdf/common/plat/pegasus/Membuf_acts_NEST.rule b/src/usr/diag/prdf/common/plat/pegasus/Membuf_acts_NEST.rule
+index 3e42220..f3b5b60 100755
+--- a/src/usr/diag/prdf/common/plat/pegasus/Membuf_acts_NEST.rule
++++ b/src/usr/diag/prdf/common/plat/pegasus/Membuf_acts_NEST.rule
+@@ -909,12 +909,12 @@ group gMbsEccFir filter priority ( 19, 41 ),
+     /** MBA0_MBSECCFIR[19]
+      *  Memory UE
+      */
+-    (Mba0_MbsEccFir, bit(19)) ? analyzeFetchUe0;
++    (Mba0_MbsEccFir, bit(19)) ? mba0MemoryUe;
+ 
+     /** MBA1_MBSECCFIR[19]
+      *  Memory UE
+      */
+-    (Mba1_MbsEccFir, bit(19)) ? analyzeFetchUe1;
++    (Mba1_MbsEccFir, bit(19)) ? mba1MemoryUe;
+ 
+     /** MBA0_MBSECCFIR[20:27]
+      *  Maintenance chip mark
+@@ -1273,7 +1273,19 @@ actionclass replayTimeOutError
+ /** Handles MBACAL parity err if present, else handles MBS Internal Timeout */
+ actionclass internalTimeout
+ {
+-    try( funccall("handleMbaCalParityErr"),  SelfMedThr1);
++    try( funccall("handleMbaCalParityErr"),  SelfMedThr1 );
++};
++
++/** Handles MBACAL parity err if present, else handles MBA0 MBSECC Memory UE */
++actionclass mba0MemoryUe
++{
++    try ( funccall("handleSingleMbaCalParityErr0"), analyzeFetchUe0 );
++};
++
++/** Handles MBACAL parity err if present, else handles MBA1 MBSECC Memory UE */
++actionclass mba1MemoryUe
++{
++    try ( funccall("handleSingleMbaCalParityErr1"), analyzeFetchUe1 );
+ };
+ 
+ /** Clear MBS SecondaryBits and calloutDmiBusTh1UE */
+diff --git a/src/usr/diag/prdf/common/plat/pegasus/prdfCenMembuf.C b/src/usr/diag/prdf/common/plat/pegasus/prdfCenMembuf.C
+index f5ba62b..a7c9772 100755
+--- a/src/usr/diag/prdf/common/plat/pegasus/prdfCenMembuf.C
++++ b/src/usr/diag/prdf/common/plat/pegasus/prdfCenMembuf.C
+@@ -1172,45 +1172,38 @@ int32_t handleMcsChnlCs( ExtensibleChip * i_membChip,
+ //------------------------------------------------------------------------------
+ 
+ /**
+- * @brief Handles MBACALFIR RCD Parity error bits, if they exist.
++ * @brief Handles MBACALFIR RCD Parity error bits, if they exist on a single mba
+  *
+  * @param  i_membChip   The Centaur chip.
+  * @param  i_sc         ServiceDataCollector.
++ * @param  i_mbaPos     The MBA position.
+  *
+  * @return SUCCESS if MBACALFIR Parity error is present and properly
+  *         handled, FAIL otherwise.
+  */
+-int32_t handleMbaCalParityErr( ExtensibleChip * i_membChip,
+-                               STEP_CODE_DATA_STRUCT & i_sc )
++int32_t handleSingleMbaCalParityErr( ExtensibleChip * i_membChip,
++                                     STEP_CODE_DATA_STRUCT & i_sc,
++                                     uint32_t i_mbaPos)
+ {
+-    #define PRDF_FUNC "[handleMbaCalParityErr] "
+-
+-    // We will return FAIL from this function if MBACALFIR parity error bits are
+-    // not set. If MBACALFIR parity error bits are set, we will try to analyze
+-    // the MBACALFIR. If MBACALFIR is not analyzed properly, we will return
+-    // FAIL. This will trigger rule code to execute alternate resolution.
++    #define PRDF_FUNC "[handleSingleMbaCalParityErr] "
+ 
+-    int32_t l_rc;
++    int32_t l_rc = SUCCESS;
+ 
+     CenMembufDataBundle * mbdb = getMembufDataBundle( i_membChip );
+ 
+-    // We will loop through to check all MBA if necessary until one is found
+-    // with parity error bits set
+-    for ( uint32_t i = 0; i < MAX_MBA_PER_MEMBUF; i++)
++    do
+     {
+-        l_rc = SUCCESS;
+-
+-        ExtensibleChip * mbaChip = mbdb->getMbaChip(i);
++        ExtensibleChip * mbaChip = mbdb->getMbaChip(i_mbaPos);
+         if ( NULL == mbaChip )
+         {
+             l_rc = FAIL;
+-            continue;
++            break;
+         }
+ 
+         SCAN_COMM_REGISTER_CLASS * mbaCalFir =
+-                                    mbaChip->getRegister("MBACALFIR");
++            mbaChip->getRegister("MBACALFIR");
+         SCAN_COMM_REGISTER_CLASS * mbaCalMask =
+-                                    mbaChip->getRegister("MBACALFIR_MASK");
++            mbaChip->getRegister("MBACALFIR_MASK");
+ 
+         l_rc  = mbaCalFir->Read();
+         l_rc |= mbaCalMask->Read();
+@@ -1218,8 +1211,8 @@ int32_t handleMbaCalParityErr( ExtensibleChip * i_membChip,
+         if ( SUCCESS != l_rc )
+         {
+             PRDF_ERR( PRDF_FUNC "MBACALFIR/MBACALFIR_MASK read failed for"
+-                      "0x%08x", mbaChip->GetId());
+-            continue;
++                    "0x%08x", mbaChip->GetId());
++            break;
+         }
+ 
+         // If any of the MBACALFIR parity error bits are set, we will
+@@ -1234,11 +1227,51 @@ int32_t handleMbaCalParityErr( ExtensibleChip * i_membChip,
+         if ( ( bit4 && !mask4 ) || ( bit7 && !mask7 ) )
+         {
+             l_rc = mbaChip->Analyze( i_sc,
+-                        i_sc.service_data->getSecondaryAttnType() );
++                    i_sc.service_data->getSecondaryAttnType() );
+             if ( SUCCESS == l_rc ) break;
+         }
+ 
+         l_rc = FAIL;
++
++    }while(0);
++
++    return l_rc;
++    #undef PRDF_FUNC
++
++} PRDF_PLUGIN_DEFINE( Membuf, handleSingleMbaCalParityErr );
++
++//------------------------------------------------------------------------------
++
++/**
++ * @brief Handles MBACALFIR RCD Parity error bits, if they exist.
++ *
++ * @param  i_membChip   The Centaur chip.
++ * @param  i_sc         ServiceDataCollector.
++ *
++ * @return SUCCESS if MBACALFIR Parity error is present and properly
++ *         handled, FAIL otherwise.
++ */
++int32_t handleMbaCalParityErr( ExtensibleChip * i_membChip,
++                               STEP_CODE_DATA_STRUCT & i_sc )
++{
++    #define PRDF_FUNC "[handleMbaCalParityErr] "
++
++    // We will return FAIL from this function if MBACALFIR parity error bits are
++    // not set. If MBACALFIR parity error bits are set, we will try to analyze
++    // the MBACALFIR. If MBACALFIR is not analyzed properly, we will return
++    // FAIL. This will trigger rule code to execute alternate resolution.
++
++    int32_t l_rc;
++
++    // We will loop through to check all MBA if necessary until one is found
++    // with parity error bits set
++    for ( uint32_t i = 0; i < MAX_MBA_PER_MEMBUF; i++)
++    {
++        l_rc = SUCCESS;
++
++        l_rc = handleSingleMbaCalParityErr( i_membChip, i_sc, i );
++
++        if ( SUCCESS == l_rc ) break;
+     }
+ 
+     return l_rc;
+@@ -1418,6 +1451,18 @@ PLUGIN_MEMORY_MPE_ERROR( 1, 7 )
+ 
+ #undef PLUGIN_MEMORY_MPE_ERROR
+ 
++// Define the plugins for RCD parity error memory UE side-effects
++#define PLUGIN_RCD_PARITY_UE_SIDEEFFECTS( MBA ) \
++int32_t handleSingleMbaCalParityErr##MBA( ExtensibleChip * i_membChip, \
++                                          STEP_CODE_DATA_STRUCT & i_sc) \
++{ \
++    return handleSingleMbaCalParityErr( i_membChip, i_sc, MBA ); \
++} \
++PRDF_PLUGIN_DEFINE( Membuf, handleSingleMbaCalParityErr##MBA );
++
++PLUGIN_RCD_PARITY_UE_SIDEEFFECTS ( 0 )
++PLUGIN_RCD_PARITY_UE_SIDEEFFECTS ( 1 )
++
+ //------------------------------------------------------------------------------
+ 
+ int32_t calloutInterface_dmi( ExtensibleChip * i_membChip,

@@ -1,0 +1,206 @@
+From e4fb8d762b99fb8bd24b34e28dcb34573116db30 Mon Sep 17 00:00:00 2001
+From: Benjamin Weisenbeck <bweisenb@us.ibm.com>
+Date: Wed, 23 Dec 2015 08:43:02 -0600
+Subject: [PATCH] PRD: Fix register capture requirements for Murano and XB
+ chiplets
+
+CQ: SW331625
+Change-Id: I1d88c55d59c4f5a20907a4f1e33434609246881c
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/22960
+Reviewed-by: Zane Shelley <zshelle@us.ibm.com>
+Tested-by: Jenkins Server
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/23672
+Tested-by: Jenkins OP Build CI
+Tested-by: Jenkins OP HW
+Tested-by: FSP CI Jenkins
+Reviewed-by: Daniel M. Crowell <dcrowell@us.ibm.com>
+---
+ .../prdf/common/plat/pegasus/Proc_regs_XBUS.rule   | 38 ++++++++--------------
+ src/usr/diag/prdf/common/plat/pegasus/prdfP8Proc.C | 19 ++++++++++-
+ 2 files changed, 31 insertions(+), 26 deletions(-)
+
+diff --git a/src/usr/diag/prdf/common/plat/pegasus/Proc_regs_XBUS.rule b/src/usr/diag/prdf/common/plat/pegasus/Proc_regs_XBUS.rule
+index 1d7bf28..52e3d60 100755
+--- a/src/usr/diag/prdf/common/plat/pegasus/Proc_regs_XBUS.rule
++++ b/src/usr/diag/prdf/common/plat/pegasus/Proc_regs_XBUS.rule
+@@ -5,7 +5,7 @@
+ #
+ # OpenPOWER HostBoot Project
+ #
+-# Contributors Listed Below - COPYRIGHT 2012,2015
++# Contributors Listed Below - COPYRIGHT 2012,2016
+ # [+] International Business Machines Corp.
+ #
+ #
+@@ -156,18 +156,16 @@
+         scomaddr    0x04011000;
+         reset       (&, 0x04011001);
+         mask        (|, 0x04011005);
+-        capture     req funccall("isNotMuranoProc");
++        capture     req funccall("notMuranoAndXbEnabled");
+         capture     group default;
+-        capture     req funccall("isXBusEnabled");
+     };
+ 
+     register IOXFIR_0_MASK
+     {
+         name        "XBUS01.X0.BUSCTL.SCOM.FIR_MASK_REG";
+         scomaddr    0x04011003;
+-        capture     req funccall("isNotMuranoProc");
++        capture     req funccall("notMuranoAndXbEnabled");
+         capture     group default;
+-        capture     req funccall("isXBusEnabled");
+     };
+ 
+     register IOXFIR_0_ACT0
+@@ -175,10 +173,9 @@
+         name        "XBUS01.X0.BUSCTL.SCOM.FIR_ACTION0_REG";
+         scomaddr    0x04011006;
+         capture     type secondary;
+-        capture     req funccall("isNotMuranoProc");
++        capture     req funccall("notMuranoAndXbEnabled");
+         capture     req nonzero("IOXFIR_0");
+         capture     group default;
+-        capture     req funccall("isXBusEnabled");
+     };
+ 
+     register IOXFIR_0_ACT1
+@@ -186,10 +183,9 @@
+         name        "XBUS01.X0.BUSCTL.SCOM.FIR_ACTION1_REG";
+         scomaddr    0x04011007;
+         capture     type secondary;
+-        capture     req funccall("isNotMuranoProc");
++        capture     req funccall("notMuranoAndXbEnabled");
+         capture     req nonzero("IOXFIR_0");
+         capture     group default;
+-        capture     req funccall("isXBusEnabled");
+     };
+ 
+     ############################################################################
+@@ -247,18 +243,16 @@
+         scomaddr    0x04011C00;
+         reset       (&, 0x04011C01);
+         mask        (|, 0x04011C05);
+-        capture     req funccall("isNotMuranoProc");
++        capture     req funccall("notMuranoAndXbEnabled");
+         capture     group default;
+-        capture     req funccall("isXBusEnabled");
+     };
+ 
+     register IOXFIR_2_MASK
+     {
+         name        "XBUS23.X1.BUSCTL.SCOM.FIR_MASK_REG";
+         scomaddr    0x04011C03;
+-        capture     req funccall("isNotMuranoProc");
++        capture     req funccall("notMuranoAndXbEnabled");
+         capture     group default;
+-        capture     req funccall("isXBusEnabled");
+     };
+ 
+     register IOXFIR_2_ACT0
+@@ -266,10 +260,9 @@
+         name        "XBUS23.X1.BUSCTL.SCOM.FIR_ACTION0_REG";
+         scomaddr    0x04011C06;
+         capture     type secondary;
+-        capture     req funccall("isNotMuranoProc");
++        capture     req funccall("notMuranoAndXbEnabled");
+         capture     req nonzero("IOXFIR_2");
+         capture     group default;
+-        capture     req funccall("isXBusEnabled");
+     };
+ 
+     register IOXFIR_2_ACT1
+@@ -277,10 +270,9 @@
+         name        "XBUS23.X1.BUSCTL.SCOM.FIR_ACTION1_REG";
+         scomaddr    0x04011C07;
+         capture     type secondary;
+-        capture     req funccall("isNotMuranoProc");
++        capture     req funccall("notMuranoAndXbEnabled");
+         capture     req nonzero("IOXFIR_2");
+         capture     group default;
+-        capture     req funccall("isXBusEnabled");
+     };
+ 
+     ############################################################################
+@@ -296,18 +288,16 @@
+         scomaddr    0x04011800;
+         reset       (&, 0x04011801);
+         mask        (|, 0x04011805);
+-        capture     req funccall("isNotMuranoProc");
++        capture     req funccall("notMuranoAndXbEnabled");
+         capture     group default;
+-        capture     req funccall("isXBusEnabled");
+     };
+ 
+     register IOXFIR_3_MASK
+     {
+         name        "XBUS23.X0.XBUS1.BUSCTL.SCOM.FIR_MASK_REG";
+         scomaddr    0x04011803;
+-        capture     req funccall("isNotMuranoProc");
++        capture     req funccall("notMuranoAndXbEnabled");
+         capture     group default;
+-        capture     req funccall("isXBusEnabled");
+     };
+ 
+     register IOXFIR_3_ACT0
+@@ -315,10 +305,9 @@
+         name        "XBUS23.X0.XBUS1.BUSCTL.SCOM.FIR_ACTION0_REG";
+         scomaddr    0x04011806;
+         capture     type secondary;
+-        capture     req funccall("isNotMuranoProc");
++        capture     req funccall("notMuranoAndXbEnabled");
+         capture     req nonzero("IOXFIR_3");
+         capture     group default;
+-        capture     req funccall("isXBusEnabled");
+     };
+ 
+     register IOXFIR_3_ACT1
+@@ -326,10 +315,9 @@
+         name        "XBUS23.X0.XBUS1.BUSCTL.SCOM.FIR_ACTION1_REG";
+         scomaddr    0x04011807;
+         capture     type secondary;
+-        capture     req funccall("isNotMuranoProc");
++        capture     req funccall("notMuranoAndXbEnabled");
+         capture     req nonzero("IOXFIR_3");
+         capture     group default;
+-        capture     req funccall("isXBusEnabled");
+     };
+ 
+     ############################################################################
+diff --git a/src/usr/diag/prdf/common/plat/pegasus/prdfP8Proc.C b/src/usr/diag/prdf/common/plat/pegasus/prdfP8Proc.C
+index ea943a3..4675198 100755
+--- a/src/usr/diag/prdf/common/plat/pegasus/prdfP8Proc.C
++++ b/src/usr/diag/prdf/common/plat/pegasus/prdfP8Proc.C
+@@ -5,7 +5,7 @@
+ /*                                                                        */
+ /* OpenPOWER HostBoot Project                                             */
+ /*                                                                        */
+-/* Contributors Listed Below - COPYRIGHT 2012,2015                        */
++/* Contributors Listed Below - COPYRIGHT 2012,2016                        */
+ /* [+] International Business Machines Corp.                              */
+ /*                                                                        */
+ /*                                                                        */
+@@ -1074,6 +1074,23 @@ int32_t isXBusEnabled( ExtensibleChip * i_chip, bool & o_xbusEnabled )
+ PRDF_PLUGIN_DEFINE_NS( NaplesProc, Proc, isXBusEnabled );
+ PRDF_PLUGIN_DEFINE_NS( MuranoVeniceProc, Proc, isXBusEnabled );
+ 
++/**
++ * @brief Checks if not murano chip and XBUS is enabled
++ * @param i_chip P8 chip
++ * @param o_captureAllowed TRUE if not murano and xbus enabled
++ */
++int32_t notMuranoAndXbEnabled( ExtensibleChip * i_chip,
++                               bool & o_captureAllowed )
++{
++    o_captureAllowed =
++        ( ( MODEL_MURANO != getProcModel( i_chip->GetChipHandle() ) ) &&
++          PlatServices::isXBusEnabled(i_chip->GetChipHandle()) );
++
++    return SUCCESS;
++}
++PRDF_PLUGIN_DEFINE_NS( NaplesProc, Proc, notMuranoAndXbEnabled );
++PRDF_PLUGIN_DEFINE_NS( MuranoVeniceProc, Proc, notMuranoAndXbEnabled );
++
+ } // end namespace Proc
+ 
+ } // end namespace PRDF

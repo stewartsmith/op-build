@@ -1,0 +1,283 @@
+From eb4d2d797ebeceb58193a0e4a13561915d7fabf3 Mon Sep 17 00:00:00 2001
+From: Jaymes Wilks <mjwilks@us.ibm.com>
+Date: Tue, 22 Sep 2015 16:32:59 -0500
+Subject: [PATCH] Update SBE Image Version to recognize GOLDEN SBE Image
+
+This commit adds a flag "origin" to the SBE version info at 0x300 of the
+SBE to indicate whether the current working side SBE image originated
+from the golden side.  When a system has trouble booting from the primary
+side PNOR and fails over to the golden side PNOR, hostboot copies the golden
+side SBE over to the primary side SBE.  Without the origin flag, there's no
+reliable way to know, after the fact, which SBE image is on the primary side.
+The flag's value was added to a trace message in getSeepromSideVersion, to
+indicate the flag's value to the user.
+
+Change-Id: I1ac3ab6a7239b2302a334bcf1f1bd7f664b7844b
+RTC:128646
+ForwardPort: yes
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/23617
+Tested-by: Jenkins Server
+Reviewed-by: WILLIAM G. HOFFA <wghoffa@us.ibm.com>
+Tested-by: Jenkins OP Build CI
+Tested-by: Jenkins OP HW
+Tested-by: FSP CI Jenkins
+Reviewed-by: Daniel M. Crowell <dcrowell@us.ibm.com>
+---
+ src/usr/sbe/sbe_resolve_sides.C | 27 ++++++++++++++++++++++++-
+ src/usr/sbe/sbe_update.C        | 45 ++++++++++++++++++++++++-----------------
+ src/usr/sbe/sbe_update.H        | 32 +++++++++++++++++++++--------
+ 3 files changed, 76 insertions(+), 28 deletions(-)
+
+diff --git a/src/usr/sbe/sbe_resolve_sides.C b/src/usr/sbe/sbe_resolve_sides.C
+index 90b996a..9c0c9d3 100644
+--- a/src/usr/sbe/sbe_resolve_sides.C
++++ b/src/usr/sbe/sbe_resolve_sides.C
+@@ -5,7 +5,7 @@
+ /*                                                                        */
+ /* OpenPOWER HostBoot Project                                             */
+ /*                                                                        */
+-/* Contributors Listed Below - COPYRIGHT 2015                             */
++/* Contributors Listed Below - COPYRIGHT 2015,2016                        */
+ /* [+] International Business Machines Corp.                              */
+ /*                                                                        */
+ /*                                                                        */
+@@ -539,6 +539,31 @@ errlHndl_t performSideActions(sbeResolveState_t& io_sideState)
+                            io_sideState.actions, image_size);
+                 break;
+             }
++
++            // The host has booted from the golden side because the action
++            // COPY_READ_ONLY_TO_WORKING implies io_sideState.pnor_isGolden.
++            // We need to write to the version info that the SBE Seeprom Image
++            // originates from the golden side Seeprom.
++
++            // If the golden side version struct doesn't already have the newer
++            // nest_freq_mhz field add it.
++            if (image_version.struct_version < STRUCT_VERSION_NEST_FREQ)
++            {
++                TargetService& ts = targetService();
++                TARGETING::Target* sys = NULL;
++                ts.getTopLevelTarget(sys);
++
++                image_version.nest_freq_mhz =
++                                        sys->getAttr<ATTR_NEST_FREQ_MHZ>();
++            }
++
++            // indicate that the version struct is the latest version
++            image_version.struct_version = STRUCT_VERSION_LATEST;
++
++            // indicate that the SBE image we are copying originates from
++            // the golden side seeprom.  This value will be read and printed
++            // in the traces each time getSeepromSideVersion is called.
++            image_version.origin = GOLDEN_SIDE;
+         }
+ 
+         if ( io_sideState.actions & CHECK_WORKING_HBB )
+diff --git a/src/usr/sbe/sbe_update.C b/src/usr/sbe/sbe_update.C
+index 8340d86..4b1d477 100644
+--- a/src/usr/sbe/sbe_update.C
++++ b/src/usr/sbe/sbe_update.C
+@@ -5,7 +5,7 @@
+ /*                                                                        */
+ /* OpenPOWER HostBoot Project                                             */
+ /*                                                                        */
+-/* Contributors Listed Below - COPYRIGHT 2013,2015                        */
++/* Contributors Listed Below - COPYRIGHT 2013,2016                        */
+ /* [+] Google Inc.                                                        */
+ /* [+] International Business Machines Corp.                              */
+ /*                                                                        */
+@@ -1619,7 +1619,6 @@ namespace SBE
+         uint8_t * tmp_data_ECC = static_cast<uint8_t*>(
+                                         malloc(sbeInfoSize_ECC));
+ 
+-
+         do{
+ 
+             /***********************************************/
+@@ -1668,13 +1667,12 @@ namespace SBE
+                        eccStatus, o_info.struct_version, o_info.data_crc);
+ 
+ 
+-            if ( ( o_info.struct_version == 1 ) ||
+-                   o_info.struct_version == 2 )
++            if ( o_info.struct_version >= STRUCT_VERSION_CRC &&
++                 o_info.struct_version <= STRUCT_VERSION_ORIGIN_GOLD )
+             {
+                 // Supported Versions - set size variable to remove ECC
+                 sbeInfoSize = SBE_SEEPROM_STRUCT_SIZES[o_info.struct_version];
+                 sbeInfoSize_ECC = (sbeInfoSize*9)/8;
+-
+             }
+             else
+             {
+@@ -1693,9 +1691,9 @@ namespace SBE
+                                          reinterpret_cast<uint8_t*>(&o_info),
+                                          sbeInfoSize);
+ 
+-            TRACUCOMP( g_trac_sbe, "getSeepromSideVersion(): eccStatus=%d, "
+-                       "sizeof o_info/sI=%d, sI_ECC=%d",
+-                       eccStatus, sbeInfoSize, sbeInfoSize_ECC);
++            TRACFCOMP( g_trac_sbe, "getSeepromSideVersion(): eccStatus=%d, "
++                       "sizeof o_info/sI=%d, sI_ECC=%d, origin golden=%i",
++                       eccStatus, sbeInfoSize, sbeInfoSize_ECC, o_info.origin);
+ 
+             // Handle Uncorrectable ECC - no error log:
+             // clear data and set o_seeprom_ver_ECC_fail=true
+@@ -1778,11 +1776,12 @@ namespace SBE
+             /*************************************************************/
+ 
+             // Create Invalid Version struct (which is always 8-byte aligned)
+-            for ( uint8_t i = 0; i < (sbeInfoSize)/8; i++ )
++            uint8_t* sbeInfoEnd = sbeInfo_data + sbeInfoSize;
++            for (uint64_t* p = reinterpret_cast<uint64_t*>(sbeInfo_data);
++                 p < reinterpret_cast<uint64_t*>(sbeInfoEnd);
++                 p++)
+             {
+-                memcpy(&sbeInfo_data[i*8],
+-                       &SBE_SEEPROM_STRUCT_INVALID,
+-                       sizeof(uint64_t));
++                *p = SBE_SEEPROM_STRUCT_INVALID;
+             }
+ 
+             // Inject ECC to Data
+@@ -2168,7 +2167,7 @@ namespace SBE
+ 
+             // Check if in simics
+             if ( ( io_sbeState.seeprom_0_ver.struct_version ==
+-                   SBE_SEEPROM_STRUCT_SIMICS_VERSION )
++                   STRUCT_VERSION_SIMICS )
+                  && ( Util::isSimicsRunning() )
+                )
+             {
+@@ -2218,7 +2217,7 @@ namespace SBE
+ 
+             // Check if in simics
+             if ( ( io_sbeState.seeprom_1_ver.struct_version ==
+-                   SBE_SEEPROM_STRUCT_SIMICS_VERSION )
++                   STRUCT_VERSION_SIMICS )
+                  && ( Util::isSimicsRunning() )
+                )
+             {
+@@ -2332,10 +2331,11 @@ namespace SBE
+                 memset(&(io_sbeState.new_seeprom_ver),
+                        0x0,
+                        sizeof(sbeSeepromVersionInfo_t));
+-
++                // the above memset also has the side effect of setting the
++                // origin field to WORKING_SIDE which is the default
+ 
+                 io_sbeState.new_seeprom_ver.struct_version =
+-                                            SBE_SEEPROM_STRUCT_VERSION;
++                                            STRUCT_VERSION_LATEST;
+ 
+                 memcpy( &(io_sbeState.new_seeprom_ver.image_version),
+                         &(io_sbeState.pnorVersion),
+@@ -4087,7 +4087,8 @@ namespace SBE
+         o_mismatch = false;
+ 
+         // Check Seeprom
+-        if ( i_struct_version == 2 )
++        if ( i_struct_version >= STRUCT_VERSION_NEST_FREQ &&
++             i_struct_version <= STRUCT_VERSION_ORIGIN_GOLD )
+         {
+             // Only version that tracks the nest freq when the image was
+             // customized
+@@ -4208,7 +4209,10 @@ namespace SBE
+ 
+                 if (tmp_cur_side == SBE_SEEPROM0)
+                 {
+-                    if ( io_sbeState.seeprom_0_ver.struct_version == 2 )
++                    if ( io_sbeState.seeprom_0_ver.struct_version >=
++                            STRUCT_VERSION_NEST_FREQ &&
++                         io_sbeState.seeprom_0_ver.struct_version <=
++                            STRUCT_VERSION_ORIGIN_GOLD )
+                     {
+                         io_sbeState.mproc_nest_freq_mhz =
+                                     io_sbeState.seeprom_0_ver.nest_freq_mhz;
+@@ -4221,7 +4225,10 @@ namespace SBE
+                 }
+                 else if ( tmp_cur_side == SBE_SEEPROM1 )
+                 {
+-                    if ( io_sbeState.seeprom_1_ver.struct_version == 2 )
++                    if ( io_sbeState.seeprom_1_ver.struct_version >=
++                            STRUCT_VERSION_NEST_FREQ &&
++                         io_sbeState.seeprom_1_ver.struct_version <=
++                            STRUCT_VERSION_ORIGIN_GOLD )
+                     {
+                         io_sbeState.mproc_nest_freq_mhz =
+                                     io_sbeState.seeprom_1_ver.nest_freq_mhz;
+diff --git a/src/usr/sbe/sbe_update.H b/src/usr/sbe/sbe_update.H
+index f13e9b1..46eccfe 100644
+--- a/src/usr/sbe/sbe_update.H
++++ b/src/usr/sbe/sbe_update.H
+@@ -5,7 +5,7 @@
+ /*                                                                        */
+ /* OpenPOWER HostBoot Project                                             */
+ /*                                                                        */
+-/* Contributors Listed Below - COPYRIGHT 2013,2015                        */
++/* Contributors Listed Below - COPYRIGHT 2013,2016                        */
+ /* [+] International Business Machines Corp.                              */
+ /*                                                                        */
+ /*                                                                        */
+@@ -43,12 +43,8 @@ namespace SBE
+     // Using only first 20 bytes of 64-byte sbe_image_version
+     const size_t   SBE_MVPD_SHORT_IMAGE_VERSION_SIZE = 20;
+ 
+-    // Version of Struct stored in SEEPROM
+-    const uint32_t SBE_SEEPROM_STRUCT_VERSION        = 0x00000002;
+-    const uint32_t SBE_SEEPROM_STRUCT_SIMICS_VERSION = 0x5A5A5A5A;
+-
+     // Number of versions supported
+-    const uint8_t SBE_SEEPROM_STRUCT_MAX_VERSIONS    = 0x03;
++    const uint8_t SBE_SEEPROM_STRUCT_MAX_VERSIONS    = 0x04;
+ 
+     // Size of supported versions - must be 8-byte aligned
+     const size_t  SBE_SEEPROM_STRUCT_SIZES[SBE_SEEPROM_STRUCT_MAX_VERSIONS] =
+@@ -56,8 +52,18 @@ namespace SBE
+                         0,   // ver0: uninitialized - no size
+                         72,  // ver1: size of struct is 72 bytes
+                         80,  // ver2: size of struct is 80 bytes
++                        80,  // ver3: size of struct is 80 bytes
+                       };
+ 
++    // This enum provides the struct versions for sbeSeepromVersionInfo_t
++    // Each numberic version is named after the key feature it introduces.
++    enum sbeSeepromStructVersionInfo_t {
++        STRUCT_VERSION_CRC = 0x1,
++        STRUCT_VERSION_NEST_FREQ = 0x2,
++        STRUCT_VERSION_ORIGIN_GOLD = 0x3,
++        STRUCT_VERSION_LATEST = 0x3,
++        STRUCT_VERSION_SIMICS = 0x5A5A5A5A,
++    };
+ 
+     // Constant written to SBE SEEPROM version struct to invalidate the
+     // struct and the image - 'INVALID\0'
+@@ -142,6 +148,14 @@ namespace SBE
+         UNSUPPORTED_SITUATION  = 0x80000000,
+     };
+ 
++    // Values used to indicate whether an SBE Seeprom image originates for the
++    // golden side SBE Seeprom
++    enum sbeOrigin_t
++    {
++        WORKING_SIDE = 0,
++        GOLDEN_SIDE = 1,
++    };
++
+     /******************************************/
+     /*  Structs                               */
+     /******************************************/
+@@ -161,9 +175,11 @@ namespace SBE
+         uint32_t  data_crc;
+         uint8_t   image_version[SBE_IMAGE_VERSION_SIZE];
+ 
+-        // New parameters for version 2: nest_freq_mhz and uin32_t/reserved
++        // New parameters for version 2: nest_freq_mhz and uint8_t's for unused
+         uint32_t  nest_freq_mhz;
+-        uint32_t  reserved;      // reserved; added for alignment
++        // New parameters for version 3: origin set if SBE came from golden side
++        uint8_t   origin;
++        uint8_t   unused[3]; // unused space
+     } PACKED;
+ 
+     // This line forces a compile fail if struct is NOT 8-byte-alaigned

@@ -1,0 +1,101 @@
+From 92958ca9ec564b31030b138e76f4c25de17bbcaf Mon Sep 17 00:00:00 2001
+From: "Richard J. Knight" <rjknight@us.ibm.com>
+Date: Wed, 3 Feb 2016 10:36:52 -0600
+Subject: [PATCH] DIMM Present sensor not active after dimm is deconfigured
+
+    -Modified set sensor reading command to not use the
+     bit by default in the operation field which triggers the BMC
+     to overwrite the existing assertion mask.
+
+    -Updated the reboot count sensor to use the operation
+     specified by AMI to overwrite existing data in assertion
+     mask field.
+
+Change-Id: I81958225480f495f8b0d4f523d0c8109832475f6
+CQ:SW328073
+---
+ src/include/usr/ipmi/ipmisensor.H | 11 ++++++++++-
+ src/usr/ipmi/ipmisensor.C         | 16 ++++++++++++++--
+ 2 files changed, 24 insertions(+), 3 deletions(-)
+
+diff --git a/src/include/usr/ipmi/ipmisensor.H b/src/include/usr/ipmi/ipmisensor.H
+index 23dc594..9f57d4d 100644
+--- a/src/include/usr/ipmi/ipmisensor.H
++++ b/src/include/usr/ipmi/ipmisensor.H
+@@ -196,8 +196,17 @@ namespace SENSOR
+     //                  the event deassertion bits, zeros are ignored.
+     //      [0:1] 01b - write the given value to the sensor reading byte.
+     //
++    //      Note: Per AMI implementation bits 0:1 will force the assertion
++    //            mask value as sent to be the new sensor value, all other bits
++    //            are ignored.
++    //
+     //      default operation = 1010 1001
+-    static const uint8_t DEFAULT_OPERATION = 0xA9;  // see IPMI Spec. "Set
++    static const uint8_t DEFAULT_OPERATION = 0xA8;  // see IPMI Spec. "Set
++
++    // use this value for sensors which use assertion fields for sensor values
++    // eg. Reboot count
++    static const uint8_t SET_SENSOR_VALUE_OPERATION = 0x01;
++
+     // Sensor Reading and Event
+     // Status command" for
+     // details on this byte.
+diff --git a/src/usr/ipmi/ipmisensor.C b/src/usr/ipmi/ipmisensor.C
+index 69a58dd..ef0d0da 100644
+--- a/src/usr/ipmi/ipmisensor.C
++++ b/src/usr/ipmi/ipmisensor.C
+@@ -546,6 +546,7 @@ namespace SENSOR
+         :SensorBase(TARGETING::SENSOR_NAME_REBOOT_COUNT, NULL)
+     {
+         // message buffer created and initialized in base object.
++
+     }
+ 
+     //
+@@ -558,6 +559,9 @@ namespace SENSOR
+     //
+     errlHndl_t RebootCountSensor::setRebootCount( uint16_t i_count )
+     {
++        // adjust the operation to overwrite the sensor reading
++        // to the value we send.
++        iv_msg->iv_operation = SET_SENSOR_VALUE_OPERATION;
+ 
+         // the Reboot_count sensor is defined as a discrete sensor
+         // but the assertion bytes are being used to transfer the count
+@@ -659,8 +663,9 @@ namespace SENSOR
+                 case NOT_PRESENT:
+                     // turn off the present bit
+                     iv_msg->iv_deassertion_mask = pres_mask;
+-                    // turn on the disabled bit
+-                    iv_msg->iv_assertion_mask = func_mask;
++
++                    // turn off the disabled bit in case it was on
++                    iv_msg->iv_deassertion_mask |= func_mask;
+                     break;
+ 
+                 case PRESENT:
+@@ -795,6 +800,12 @@ namespace SENSOR
+         // assert the specified state
+         iv_msg->iv_assertion_mask = setMask(i_state);
+ 
++        /// deassert the other one
++        OccStateEnum other_state =
++            (i_state == OCC_ACTIVE) ? OCC_NOT_ACTIVE : OCC_ACTIVE;
++
++        iv_msg->iv_deassertion_mask = setMask( other_state );
++
+         l_err = writeSensorData();
+ 
+         return l_err;
+@@ -858,6 +869,7 @@ namespace SENSOR
+     //
+     errlHndl_t HostStatusSensor::updateHostStatus( hostStatus status )
+     {
++        iv_msg->iv_operation = SET_SENSOR_VALUE_OPERATION;
+         iv_msg->iv_assertion_mask = setMask((uint8_t)status);
+ 
+         return writeSensorData();
+-- 
+1.8.2.2
+

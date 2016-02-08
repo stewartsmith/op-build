@@ -1,0 +1,48 @@
+From fc609228236cec5c5a88f7a8b00736e33b22aac3 Mon Sep 17 00:00:00 2001
+From: Zane Shelley <zshelle@us.ibm.com>
+Date: Mon, 11 Jan 2016 15:34:52 -0600
+Subject: [PATCH] PRD: callout issue where spares appear to be steered to
+ themselves.
+
+Change-Id: I03ec0c4c15bd29476509b7e39199149be9686108
+CQ: SW328396
+Backport: master-p8
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/23215
+Tested-by: Jenkins Server
+Reviewed-by: Caleb N. Palmer <cnpalmer@us.ibm.com>
+Reviewed-by: BENJAMIN J. WEISENBECK <bweisenb@us.ibm.com>
+Reviewed-by: Daniel M. Crowell <dcrowell@us.ibm.com>
+Reviewed-by: Zane Shelley <zshelle@us.ibm.com>
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/23667
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/23673
+Tested-by: Jenkins OP Build CI
+Tested-by: Jenkins OP HW
+Tested-by: FSP CI Jenkins
+---
+ .../diag/prdf/common/framework/service/prdfPlatServices_common.C    | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/src/usr/diag/prdf/common/framework/service/prdfPlatServices_common.C b/src/usr/diag/prdf/common/framework/service/prdfPlatServices_common.C
+index bbb487b..f734946 100755
+--- a/src/usr/diag/prdf/common/framework/service/prdfPlatServices_common.C
++++ b/src/usr/diag/prdf/common/framework/service/prdfPlatServices_common.C
+@@ -5,7 +5,7 @@
+ /*                                                                        */
+ /* OpenPOWER HostBoot Project                                             */
+ /*                                                                        */
+-/* Contributors Listed Below - COPYRIGHT 2013,2015                        */
++/* Contributors Listed Below - COPYRIGHT 2013,2016                        */
+ /* [+] International Business Machines Corp.                              */
+ /*                                                                        */
+ /*                                                                        */
+@@ -619,10 +619,6 @@ int32_t mssGetSteerMux( TargetHandle_t i_mba, const CenRank & i_rank,
+         o_port0Spare = CenSymbol::fromSymbol( i_mba, i_rank, port0Spare );
+         o_port1Spare = CenSymbol::fromSymbol( i_mba, i_rank, port1Spare );
+         o_eccSpare   = CenSymbol::fromSymbol( i_mba, i_rank, eccSpare   );
+-
+-        if ( o_port0Spare.isValid() ) o_port0Spare.setDramSpared();
+-        if ( o_port1Spare.isValid() ) o_port1Spare.setDramSpared();
+-        if ( o_eccSpare.isValid()   ) o_eccSpare.setEccSpared();
+     }
+ 
+     return o_rc;

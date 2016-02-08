@@ -1,0 +1,132 @@
+From dee70f6f25fb4ed099942b1b3b0a340bd643ff06 Mon Sep 17 00:00:00 2001
+From: Bill Hoffa <wghoffa@us.ibm.com>
+Date: Sat, 21 Nov 2015 15:25:59 -0600
+Subject: [PATCH] Set correct HBB address when updating golden side SBE image
+ for MFG
+
+Change-Id: Ib1674c9d59e9d63b740103892ae7a49ff099a807
+CQ: SW329135
+Reviewed-on: http://gfw160.aus.stglabs.ibm.com:8080/gerrit/22260
+Tested-by: Jenkins Server
+Tested-by: Jenkins OP Build CI
+Tested-by: Jenkins OP HW
+Tested-by: FSP CI Jenkins
+Reviewed-by: A. Patrick Williams III <iawillia@us.ibm.com>
+---
+ src/usr/sbe/sbe_resolve_sides.C |  8 ++------
+ src/usr/sbe/sbe_update.C        | 38 +++++++++++++++++++++++++++++++++-----
+ 2 files changed, 35 insertions(+), 11 deletions(-)
+
+diff --git a/src/usr/sbe/sbe_resolve_sides.C b/src/usr/sbe/sbe_resolve_sides.C
+index 393fdf7..90b996a 100644
+--- a/src/usr/sbe/sbe_resolve_sides.C
++++ b/src/usr/sbe/sbe_resolve_sides.C
+@@ -543,7 +543,6 @@ errlHndl_t performSideActions(sbeResolveState_t& io_sideState)
+ 
+         if ( io_sideState.actions & CHECK_WORKING_HBB )
+         {
+-
+             // Copy current SBE Seeprom Image to Memory
+             // NOTE: Seprate section from above because of possible future
+             // improvement to use MBPD SB Keyword bit to keep track of HBB
+@@ -607,6 +606,7 @@ errlHndl_t performSideActions(sbeResolveState_t& io_sideState)
+                  ( io_sideState.cur_side != READ_ONLY_SEEPROM ) )
+             {
+                 io_sideState.actions |= REIPL;
++
+                 TRACUCOMP( g_trac_sbe, ERR_MRK
+                            "performSideActions: resolveImageHBBaddr returned "
+                            "updateForHBB=%d, and not on READ_ONLY_SEEPROM so "
+@@ -1191,13 +1191,9 @@ errlHndl_t resolveImageHBBaddr(TARGETING::Target* i_target,
+             break;
+         }
+ 
+-
+         // Only Need to Check/Update if PNOR has Other Side
+-        // and Seeprom isn't pointing at PNOR's GOLDEN side
+-        if ( (  pnor_side_info.hasOtherSide == true ) &&
+-             (  pnor_side_info.isGolden == false ) )
++        if ( pnor_side_info.hasOtherSide == true )
+         {
+-
+             // Read the MMIO offset associated with the HBB address
+             // from the image
+             rc = sbe_xip_get_scalar( io_imgPtr,
+diff --git a/src/usr/sbe/sbe_update.C b/src/usr/sbe/sbe_update.C
+index 237838f..8340d86 100644
+--- a/src/usr/sbe/sbe_update.C
++++ b/src/usr/sbe/sbe_update.C
+@@ -165,18 +165,38 @@ namespace SBE
+                 g_istep_mode = true;
+             }
+ 
+-
+             if (mnfg_flags & MNFG_FLAG_UPDATE_BOTH_SIDES_OF_SBE)
+             {
+                 TRACFCOMP(g_trac_sbe,
+-                        INFO_MRK"Update Both Sides of SBE Flag Indicated");
+-                g_update_both_sides = true;
++                            INFO_MRK"Update Both Sides of SBE Flag Indicated.");
++                bool l_isGoldenSide=true;
++                errlHndl_t l_err = isGoldenSide(l_isGoldenSide);
++
++                if(l_err)
++                {
++                    TRACFCOMP(g_trac_sbe,
++                              ERR_MRK"updateProcessorSbeSeeproms::isGoldenSide "
++                                     "returned an error");
++                    errlCommit( l_err, SBE_COMP_ID );
++                    l_isGoldenSide = true;
++                }
++
++                if (l_isGoldenSide)
++                {
++                    g_update_both_sides = false;
++                    TRACFCOMP(g_trac_sbe,
++                                INFO_MRK"Boot on Golden Side - Ignoring Update "
++                                        "both sides of SBE Flag");
++                }
++                else
++                {
++                    g_update_both_sides = true;
++                }
+             }
+ 
+             // Collect ATTR_NEST_FREQ_MHZ for reference later
+             g_current_nest_freq = sys->getAttr<ATTR_NEST_FREQ_MHZ>();
+ 
+-
+             //Make sure procedure constants keep within expected range.
+             assert((FIXED_SEEPROM_WORK_SPACE <= VMM_SBE_UPDATE_SIZE/2),
+                    "updateProcessorSbeSeeproms() FIXED_SEEPROM_WORK_SPACE "
+@@ -1899,13 +1919,21 @@ namespace SBE
+             // Ensure HBB address value in the customized image is correct
+             // for this side
+             bool imageWasUpdated=false;
++
+             err = resolveImageHBBaddr ( io_sbeState.target,
+                                         reinterpret_cast<void*>(SBE_IMG_VADDR),
+                                         ((io_sbeState.seeprom_side_to_update ==
+                                          EEPROM::SBE_PRIMARY ) ?
+                                                  SBE_SEEPROM0 :
+                                                  SBE_SEEPROM1  ),
++#ifdef CONFIG_PNOR_TWO_SIDE_SUPPORT
++                                        ((io_sbeState.seeprom_side_to_update ==
++                                         EEPROM::SBE_PRIMARY ) ?
++                                                 PNOR::WORKING :
++                                                 PNOR::ALTERNATE  ),
++#else
+                                         PNOR::WORKING,
++#endif
+                                         imageWasUpdated );
+ 
+             if (imageWasUpdated == true )
+@@ -4191,7 +4219,7 @@ namespace SBE
+                         io_sbeState.mproc_nest_freq_mhz = default_nest_freq;
+                     }
+                 }
+-                else if ( io_sbeState.cur_seeprom_side == SBE_SEEPROM1)
++                else if ( tmp_cur_side == SBE_SEEPROM1 )
+                 {
+                     if ( io_sbeState.seeprom_1_ver.struct_version == 2 )
+                     {

@@ -160,6 +160,54 @@ define OPENPOWER_PNOR_INSTALL_IMAGES_CMDS
         $(INSTALL) $(STAGING_DIR)/pnor/$(BR2_OPENPOWER_PNOR_FILENAME) $(BINARIES_DIR)
 	$(TARGET_MAKE_ENV) ../openpower/scripts/pnordiff.sh $(STAGING_DIR)/pnor/$(BR2_OPENPOWER_PNOR_FILENAME) $(STAGING_DIR)/pnor/ffspart.pnor
 
+	# Now construct a PNOR exclusively using ffspart
+	# Step 1: copy all the partition files over.
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/hostboot.header.bin.ecc $(STAGING_DIR)/pnor/
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/hostboot_extended.header.bin.ecc $(STAGING_DIR)/pnor/
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/hostboot_runtime.header.bin.ecc $(STAGING_DIR)/pnor/
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/hbel.bin.ecc $(STAGING_DIR)/pnor/
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/guard.bin.ecc $(STAGING_DIR)/pnor/
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/nvram.bin $(STAGING_DIR)/pnor/
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/mvpd_fill.bin.ecc $(STAGING_DIR)/pnor/
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/djvpd_fill.bin.ecc $(STAGING_DIR)/pnor/
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/cvpd.bin.ecc $(STAGING_DIR)/pnor/
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/attr_tmp.bin.ecc $(STAGING_DIR)/pnor/
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/attr_perm.bin.ecc $(STAGING_DIR)/pnor/
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/firdata.bin.ecc $(STAGING_DIR)/pnor/
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/cappucode.bin.ecc $(STAGING_DIR)/pnor/
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/secboot.bin.ecc $(STAGING_DIR)/pnor/
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/ima_catalog.bin.ecc $(STAGING_DIR)/pnor/
+	# POWER9 only (or, rather, not p8)
+        if [ "$(BR2_PACKAGE_HOSTBOOT)" == "y" ]; then \
+		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/hbbl.bin.ecc $(STAGING_DIR)/pnor/; \
+		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/ringOvd.bin $(STAGING_DIR)/pnor/ ; \
+		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/SBKT.bin $(STAGING_DIR)/pnor/ ; \
+		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_WOFDATA_BINARY_FILENAME) $(STAGING_DIR)/pnor/wofdata.bin.ecc ; \
+		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_MEMDDATA_BINARY_FILENAME) $(STAGING_DIR)/pnor/memd_extra_data.bin.ecc ; \
+		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_HOSTBOOT_BINARY_WINK_FILENAME) $(STAGING_DIR)/pnor/hcode.bin.ecc ; \
+	fi
+	if [ "$(BR2_PACKAGE_HOSTBOOT_P8)" == "y" ]; then \
+		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_HOSTBOOT_BINARY_WINK_FILENAME) $(STAGING_DIR)/pnor/wink.hdr.bin.ecc ; \
+	fi
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_OPENPOWER_TARGETING_ECC_FILENAME) $(STAGING_DIR)/pnor/hostboot_targeting.bin.ecc
+	if [ -f $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_OPENPOWER_TARGETING_ECC_FILENAME).protected ]; then \
+		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_OPENPOWER_TARGETING_ECC_FILENAME).protected $(STAGING_DIR)/pnor/hostboot_targeting.bin.ecc.protected ; \
+		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_OPENPOWER_TARGETING_ECC_FILENAME).unprotected $(STAGING_DIR)/pnor/hostboot_targeting.bin.ecc.unprotected ; \
+	fi
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_HOSTBOOT_BINARY_SBE_FILENAME) $(STAGING_DIR)/pnor/sbe.img.ecc
+	if [ -f $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_HOSTBOOT_BINARY_SBEC_FILENAME) ]; then \
+		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_HOSTBOOT_BINARY_SBEC_FILENAME) $(STAGING_DIR)/pnor/sbec.img.ecc ; \
+	fi
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_SKIBOOT_LID_XZ_NAME) $(STAGING_DIR)/pnor/skiboot.lid.xz
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(LINUX_IMAGE_NAME) $(STAGING_DIR)/pnor/zImage.epapr
+	cp $(OCC_STAGING_DIR)/$(OCC_BIN_FILENAME).ecc $(STAGING_DIR)/pnor/occ.bin.ecc
+	cp $(OPENPOWER_PNOR_SCRATCH_DIR)/openpower_pnor_version.bin $(STAGING_DIR)/pnor/openpower_pnor_version.bin
+	# Step 2: build the pnor
+	touch $(STAGING_DIR)/pnor/ffspart2.pnor
+	(cd $(STAGING_DIR)/pnor; $(TARGET_MAKE_ENV) ffspart -e -s $(BR2_OPENPOWER_PNOR_BLOCK_SIZE) -c $(BR2_OPENPOWER_PNOR_BLOCK_COUNT) -i $(abspath $(BR2_OPENPOWER_PNOR_CSV_LAYOUT_FILENAME)) -p $(STAGING_DIR)/pnor/ffspart2.pnor)
+	$(TARGET_MAKE_ENV) ../openpower/scripts/pnordiff.sh $(STAGING_DIR)/pnor/$(BR2_OPENPOWER_PNOR_FILENAME) $(STAGING_DIR)/pnor/ffspart2.pnor
+
+
         # if this config has an UPDATE_FILENAME defined, create a 32M (1/2 size)
         # image that only updates the non-golden side
         if [ "$(BR2_OPENPOWER_PNOR_UPDATE_FILENAME)" != "" ]; then \

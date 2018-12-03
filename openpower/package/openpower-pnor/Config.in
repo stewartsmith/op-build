@@ -56,6 +56,25 @@ config BR2_OPENPOWER_PNOR_XML_LAYOUT_FILENAME
         help
             String used to define hw specific make config file
 
+config BR2_OPENPOWER_PNOR_CSV_LAYOUT_FILENAME
+        string "Name of Openpower pnor CSV layout file"
+	default "../openpower/configs/pnor/defaultPnorLayout_64.csv" if BR2_OPENPOWER_POWER9
+	default "../openpower/configs/pnor/p8_twoSides.csv" if BR2_OPENPOWER_POWER8
+        help
+            Transitional as we move away from XML specified PNOR layout.
+
+config BR2_OPENPOWER_PNOR_BLOCK_SIZE
+        string "PNOR block size"
+	default "0x1000"
+        help
+            Logical PNOR block size.
+
+config BR2_OPENPOWER_PNOR_BLOCK_COUNT
+        string "Size of PNOR in blocks"
+	default "16384"
+        help
+            Number of blocks in the PNOR size, multiply by block size for size in bytes.
+
 config BR2_OPENPOWER_CONFIG_NAME
         string "Name of configuration"
         help

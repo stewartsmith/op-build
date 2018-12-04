@@ -17,6 +17,9 @@ for p in $(pflash -i -F $A |awk '/^ID\=[0-9]+\w+(.*)/ { print $2};'); do
 	if [ $? != 0 ]; then R=1; fi
 done
 
+diff $A $B
+if [ $? != 0 ]; then R=1; fi
+
 if [ $R == 0 ]; then rm -rf $T; fi
 
 exit $R

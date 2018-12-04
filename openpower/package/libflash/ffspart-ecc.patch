@@ -1,0 +1,14 @@
+diff --git a/external/ffspart/ffspart.c b/external/ffspart/ffspart.c
+index eeee0d4d657b..967f7d0cbbd2 100644
+--- a/external/ffspart/ffspart.c
++++ b/external/ffspart/ffspart.c
+@@ -248,6 +248,9 @@ static int parse_entry(struct blocklevel_device *bl,
+ 	}
+ 	ffs_entry_put(new_entry);
+ 
++	if (has_ecc(new_entry))
++		blocklevel_ecc_protect(bl, pbase, psize);
++
+ 	if (*line != '\0' && *(line + 1) != '\0') {
+ 		filename = line + 1;
+ 		data_fd = open(filename, O_RDONLY);

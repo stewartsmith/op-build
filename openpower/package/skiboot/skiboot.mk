@@ -35,6 +35,7 @@ endef
 
 define SKIBOOT_INSTALL_IMAGES_CMDS
 	$(INSTALL) -D -m 755 $(@D)/skiboot.lid $(BINARIES_DIR)
+	$(INSTALL) -D -m 755 $(@D)/skiboot.lid.xz $(BINARIES_DIR)
 endef
 
 $(eval $(generic-package))

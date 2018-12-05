@@ -63,6 +63,12 @@ config BR2_OPENPOWER_PNOR_CSV_LAYOUT_FILENAME
         help
             Transitional as we move away from XML specified PNOR layout.
 
+config BR2_OPENPOWER_PNOR_OLD_METHOD
+       bool "Use old method to produce pnor image"
+       default y
+       help
+           Transitional. Will use old method in addition to new method
+
 config BR2_OPENPOWER_PNOR_BLOCK_SIZE
         string "PNOR block size"
 	default "0x1000"

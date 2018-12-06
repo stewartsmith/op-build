@@ -156,7 +156,7 @@ define OPENPOWER_PNOR_INSTALL_IMAGES_CMDS
 	fi
 	# on POWER9 it's instead a full partition of 0xff
 	if [ "$(BR2_PACKAGE_HOSTBOOT)" == "y" ]; then \
-		dd if=/dev/zero bs=144K count=1 | tr "\000" "\377" > $(STAGING_DIR)/pnor/secboot.bin ; \
+		dd if=/dev/zero bs=128K count=1 | tr "\000" "\377" > $(STAGING_DIR)/pnor/secboot.bin ; \
 	fi
 
 	# and we add ECC to a *non* ecc partition for, ummm, reasons?

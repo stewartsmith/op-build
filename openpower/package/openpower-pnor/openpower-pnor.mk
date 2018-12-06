@@ -267,7 +267,6 @@ define OPENPOWER_PNOR_INSTALL_IMAGES_CMDS
 			--sbe_binary_filename $(BR2_HOSTBOOT_BINARY_SBE_FILENAME) \
 			--scratch_dir $(OPENPOWER_PNOR_SCRATCH_DIR) \
 			--sbe_binary_dir $(SBE_BINARY_DIR) ; \
-		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/ringOvd.bin $(STAGING_DIR)/pnor/ ; \
 		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/SBKT.bin $(STAGING_DIR)/pnor/SBKT.bin.ecc ; \
 		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_WOFDATA_BINARY_FILENAME) $(STAGING_DIR)/pnor/wofdata.bin.ecc ; \
 		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_MEMDDATA_BINARY_FILENAME) $(STAGING_DIR)/pnor/memd_extra_data.bin.ecc ; \

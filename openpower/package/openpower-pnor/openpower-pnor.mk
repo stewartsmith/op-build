@@ -245,7 +245,6 @@ define OPENPOWER_PNOR_INSTALL_IMAGES_CMDS
 	fi
 
         if [ "$(BR2_PACKAGE_HOSTBOOT)" == "y" ]; then \
-		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/cappucode.bin.ecc $(STAGING_DIR)/pnor/cappucode.bin.ecc ; \
 		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/ima_catalog.bin.ecc $(STAGING_DIR)/pnor/ima_catalog.bin.ecc ; \
 		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_SKIBOOT_LID_XZ_NAME) $(STAGING_DIR)/pnor/skiboot.lid.xz.stb ; \
 		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(LINUX_IMAGE_NAME) $(STAGING_DIR)/pnor/zImage.epapr.stb ; \
@@ -260,14 +259,15 @@ define OPENPOWER_PNOR_INSTALL_IMAGES_CMDS
 
 	# POWER9 only (or, rather, not p8)
         if [ "$(BR2_PACKAGE_HOSTBOOT)" == "y" ]; then \
-		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/hbbl.bin.ecc $(STAGING_DIR)/pnor/hbbl.bin.ecc; \
 		$(TARGET_MAKE_ENV) python $(SBE_BINARY_DIR)/sbeOpDistribute.py --install \
 			--buildSbePart $(HOSTBOOT_IMAGE_DIR)/buildSbePart.pl \
 			--hw_ref_image $(HCODE_STAGING_DIR)/p9n.ref_image.bin \
-			--sbe_binary_filename $(BR2_HOSTBOOT_BINARY_SBE_FILENAME) \
+			--sbe_binary_filename $(BR2_HOSTBOOT_BINARY_SBE_FILENAME).newmethod \
 			--scratch_dir $(OPENPOWER_PNOR_SCRATCH_DIR) \
 			--sbe_binary_dir $(SBE_BINARY_DIR) ; \
+		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/hbbl.bin.ecc $(STAGING_DIR)/pnor/hbbl.bin.ecc; \
 		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/SBKT.bin $(STAGING_DIR)/pnor/SBKT.bin.ecc ; \
+		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/SBE.bin $(STAGING_DIR)/pnor/sbe.bin.ecc ; \
 		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_WOFDATA_BINARY_FILENAME) $(STAGING_DIR)/pnor/wofdata.bin.ecc ; \
 		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_MEMDDATA_BINARY_FILENAME) $(STAGING_DIR)/pnor/memd_extra_data.bin.ecc ; \
 		cp $(OPENPOWER_PNOR_SCRATCH_DIR)/$(BR2_HOSTBOOT_BINARY_WINK_FILENAME) $(STAGING_DIR)/pnor/hcode.bin.ecc ; \
@@ -278,6 +278,22 @@ define OPENPOWER_PNOR_INSTALL_IMAGES_CMDS
 	if [ "$(BR2_PACKAGE_HOSTBOOT)" == "y" ]; then \
 		cp $(OCC_STAGING_DIR)/$(OCC_BIN_FILENAME).ecc $(STAGING_DIR)/pnor/occ.bin.header.ecc ; \
 	fi
+
+	# Sign everything with development keys.
+	# for other modes, we'll re-sign each component if needed.
+	$(TARGET_MAKE_ENV) crtSignedContainer.sh --scratchDir $(OPENPOWER_PNOR_SCRATCH_DIR) \
+		--mode development \
+		--hwKeyA $(HOST_DIR)/etc/keys/hw_key_a.key \
+		--hwKeyB $(HOST_DIR)/etc/keys/hw_key_b.key \
+		--hwKeyC $(HOST_DIR)/etc/keys/hw_key_c.key \
+		--swKeyP $(HOST_DIR)/etc/keys/sw_key_a.key \
+		--flags  0x80000000 \
+		--sign-project-FW-token CAPP \
+		--protectedPayload $(BINARIES_DIR)/$(BR2_CAPP_UCODE_BIN_FILENAME) \
+		--out $(STAGING_DIR)/pnor/cappucode.bin.signed
+	# and pad with zeros to partition size. This isn't needed and should be removed
+	# and we need to do it to the pre-ecc size of 128k for a 144k partition
+	dd if=$(STAGING_DIR)/pnor/cappucode.bin.signed of=$(STAGING_DIR)/pnor/cappucode.bin.signed.padded ibs=128k conv=sync
 
 	if [ "$(BR2_PACKAGE_HOSTBOOT)" == "y" ]; then \
 		(cd $(STAGING_DIR)/pnor; $(TARGET_MAKE_ENV) ffspart -e -s $(BR2_OPENPOWER_PNOR_BLOCK_SIZE) -c $(BR2_OPENPOWER_PNOR_BLOCK_COUNT) -i $(abspath $(BR2_OPENPOWER_PNOR_CSV_LAYOUT_FILENAME)) -p $(STAGING_DIR)/pnor/ffspart2.pnor) ; \

@@ -51,3 +51,43 @@ HCODE_
 .. _Linux: https://github.com/open-power/linux
 .. _Petitboot: https://github.com/open-power/petitboot/
 .. _HCODE: https://github.com/open-power/hcode
+
+Introductory Videos
+-------------------
+
+Introductory
+^^^^^^^^^^^^
+
+.. youtube:: https://www.youtube.com/watch?v=a4XGvssR-ag
+.. youtube:: https://www.youtube.com/watch?v=hcLhKjxa-40
+
+Secure Boot
+^^^^^^^^^^^
+
+.. youtube:: https://www.youtube.com/watch?v=hwB1bkXQep4
+
+Interfaces and standards
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. youtube:: https://www.youtube.com/watch?v=2TroT3ORw0s
+
+XIVE Interrupt Controller
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. youtube:: https://www.youtube.com/watch?v=s88beMQWkks
+
+Petitboot
+^^^^^^^^^
+
+.. youtube:: https://www.youtube.com/watch?v=4JbDb4bRBK4
+.. youtube:: https://www.youtube.com/watch?v=oxmMJMibZQ8
+
+Booting Faster
+^^^^^^^^^^^^^^
+
+.. youtube:: https://www.youtube.com/watch?v=fTLsS_QZ8us
+
+Testing
+^^^^^^^
+
+.. youtube:: https://www.youtube.com/watch?v=znEM2xqJhBU

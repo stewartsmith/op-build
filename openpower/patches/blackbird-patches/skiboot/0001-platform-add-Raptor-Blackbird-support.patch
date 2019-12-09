@@ -1,0 +1,120 @@
+From 2a4f8f6f67d1e0748bd20b4f721607ce7855ad30 Mon Sep 17 00:00:00 2001
+From: Stewart Smith <stewart@flamingspork.com>
+Date: Sun, 8 Dec 2019 19:06:25 -0800
+Subject: [PATCH] platform: add Raptor Blackbird support
+
+Based off the Raptor patch:
+https://git.raptorcs.com/git/blackbird-skiboot/commit/?id=c81f9d66592dc2a7cf7f6c59c3def5cee0638c1f
+
+Notable changes:
+- slot names matching what's silkscreened on the board
+- We communicate with the IPL observer
+  - Including indicating IPL is done, which makes fan control kick in.
+
+Signed-off-by: Stewart Smith <stewart@flamingspork.com>
+---
+ platforms/astbmc/Makefile.inc |  3 +-
+ platforms/astbmc/blackbird.c  | 77 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 79 insertions(+), 1 deletion(-)
+ create mode 100644 platforms/astbmc/blackbird.c
+
+diff --git a/platforms/astbmc/Makefile.inc b/platforms/astbmc/Makefile.inc
+index fd4eaeac..e0f8760d 100644
+--- a/platforms/astbmc/Makefile.inc
++++ b/platforms/astbmc/Makefile.inc
+@@ -6,7 +6,8 @@ ASTBMC_OBJS = pnor.o common.o slots.o \
+ 	      garrison.o barreleye.o \
+ 	      witherspoon.o zaius.o romulus.o p9dsu.o \
+ 	      vesnin.o nicole.o mihawk.o\
+-	      talos.o swift.o
++	      talos.o blackbird.o \
++	      swift.o
+ 
+ ASTBMC = $(PLATDIR)/astbmc/built-in.a
+ $(ASTBMC): $(ASTBMC_OBJS:%=$(PLATDIR)/astbmc/%)
+diff --git a/platforms/astbmc/blackbird.c b/platforms/astbmc/blackbird.c
+new file mode 100644
+index 00000000..2d12c63c
+--- /dev/null
++++ b/platforms/astbmc/blackbird.c
+@@ -0,0 +1,77 @@
++// SPDX-License-Identifier: Apache-2.0
++/* Copyright 2017 IBM Corp.
++ * Copyright 2018-2019 Raptor Engineering, LLC
++ * Copyright 2019 Stewart Smith
++ */
++
++#include <skiboot.h>
++#include <device.h>
++#include <console.h>
++#include <chip.h>
++#include <ipmi.h>
++#include <psi.h>
++#include <lpc.h>
++
++#include "astbmc.h"
++
++ST_PLUGGABLE(blackbird_cpu1_slot1, "SLOT1 PCIE 4.0 X16");
++ST_PLUGGABLE(blackbird_cpu1_slot2, "SLOT2 PCIE 4.0 X8");
++
++ST_BUILTIN_DEV(blackbird_builtin_sata, "Builtin SATA");
++ST_BUILTIN_DEV(blackbird_builtin_usb, "Builtin USB");
++ST_BUILTIN_DEV(blackbird_builtin_ethernet, "Builtin Ethernet");
++ST_BUILTIN_DEV(blackbird_builtin_bmc, "BMC");
++
++static const struct slot_table_entry blackbird_phb_table[] = {
++	ST_PHB_ENTRY(0, 0, blackbird_cpu1_slot1),
++	ST_PHB_ENTRY(0, 1, blackbird_cpu1_slot2),
++
++	ST_PHB_ENTRY(0, 2, blackbird_builtin_sata),
++	ST_PHB_ENTRY(0, 3, blackbird_builtin_usb),
++	ST_PHB_ENTRY(0, 4, blackbird_builtin_ethernet),
++	ST_PHB_ENTRY(0, 5, blackbird_builtin_bmc),
++
++	{ .etype = st_end },
++};
++
++static bool blackbird_probe(void)
++{
++	if (!dt_node_is_compatible(dt_root, "rcs,blackbird"))
++		return false;
++
++	/* Lot of common early inits here */
++	astbmc_early_init();
++
++	/* Setup UART for use by OPAL (Linux hvc) */
++	uart_set_console_policy(UART_CONSOLE_OPAL);
++
++	slot_table_init(blackbird_phb_table);
++
++	return true;
++}
++
++static void blackbird_exit(void)
++{
++	/* Let the IPL Observer know that we're done */
++	lpc_probe_write(OPAL_LPC_IO, 0x81, 0xfe, 1);
++	lpc_probe_write(OPAL_LPC_IO, 0x82, 0xfe, 1);
++
++	astbmc_exit();
++}
++
++DECLARE_PLATFORM(blackbird) = {
++	.name			= "Blackbird",
++	.probe			= blackbird_probe,
++	.init			= astbmc_init,
++	.start_preload_resource	= flash_start_preload_resource,
++	.resource_loaded	= flash_resource_loaded,
++	.bmc			= &bmc_plat_ast2500_openbmc,
++	.pci_get_slot_info	= slot_table_get_slot_info,
++	.pci_probe_complete	= check_all_slot_table,
++	.cec_power_down         = astbmc_ipmi_power_down,
++	.cec_reboot             = astbmc_ipmi_reboot,
++	.elog_commit		= ipmi_elog_commit,
++	.exit			= blackbird_exit,
++	.terminate		= ipmi_terminate,
++	.op_display		= op_display_lpc,
++};
+-- 
+2.23.0
+

@@ -1,7 +1,7 @@
-From 702497438bcf387d77a1460181ff2e5fc0817b7b Mon Sep 17 00:00:00 2001
+From 71c9ac2977064ff56dc68f5be38b084f1ea076c4 Mon Sep 17 00:00:00 2001
 From: Stewart Smith <stewart@flamingspork.com>
 Date: Fri, 13 Dec 2019 00:48:28 -0800
-Subject: [PATCH] Force Python2 for scripts
+Subject: [PATCH 1/2] Force Python2 for scripts
 
 Signed-off-by: Stewart Smith <stewart@flamingspork.com>
 ---
@@ -252,5 +252,5 @@ index 8f522bda..3ea96eae 100755
  # This is an automatically generated prolog.
  #
 -- 
-2.23.0
+2.24.1
 
